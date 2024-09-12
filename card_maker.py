@@ -76,28 +76,28 @@ def background(ctx, color):
     ctx.stroke()
 
 # paint the front of the card
-def make_front(surface, kaart):
+def make_front(surface, card):
     ctx = cairo.Context(surface)
     background(ctx, (0.9, 0.9, 1)) # light blue
     ctx.set_source_rgb(0.7, 0.7, 1) # somewhat darker blue
     ctx.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
     ctx.set_font_size(144)
-    centered_text(ctx, WIDTH / 2, HEIGHT / 2, str(kaart['level']))
+    centered_text(ctx, WIDTH / 2, HEIGHT / 2, str(card['level']))
     ctx.set_source_rgb(0, 0, 0) # black
     ctx.set_font_size(24)
-    multi_line_text(ctx, WIDTH / 2, HEIGHT / 2, kaart['term'], WIDTH - 3 * INSET)
+    multi_line_text(ctx, WIDTH / 2, HEIGHT / 2, card['term'], WIDTH - 3 * INSET)
 
 # paints the back of the card
-def make_back(surface, kaart):
+def make_back(surface, card):
     ctx = cairo.Context(surface)
     background(ctx, (0.9, 1, 0.9)) # light green
     ctx.set_source_rgb(0.7, 1, 0.7) # somewhat darker green
     ctx.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
     ctx.set_font_size(144)
-    centered_text(ctx, WIDTH / 2, HEIGHT / 2, str(kaart['level']))
+    centered_text(ctx, WIDTH / 2, HEIGHT / 2, str(card['level']))
     ctx.set_source_rgb(0, 0, 0) # black
     ctx.set_font_size(12)
-    multi_line_text(ctx, WIDTH / 2, HEIGHT / 2, kaart['definition'], WIDTH - 3 * INSET)
+    multi_line_text(ctx, WIDTH / 2, HEIGHT / 2, card['definition'], WIDTH - 3 * INSET)
 
 # displays a number in the bottom left corner of the card
 def number(surface, i):
