@@ -7,5 +7,5 @@ Wouter Bergmann Tiest
 
 Requires openpyxl and pycairo:  
 - pip3 install openpyxl
-- brew install cairo pkg-config
+- brew install cairo pkg-config (only for MacOS)
 - pip3 install pycairo
