@@ -15,15 +15,18 @@ from math import pi
 
 INPUT_FILE = 'words.xlsx' # data file with three columns
 OUTPUT_FILE = 'cards.pdf'
-PAGE_WIDTH = 420 * 72 / 25.4  # in points (1/72 inch); this is A3
+CUTTING_FILE = 'cutting_lines.pdf'
+PAGE_WIDTH = 420 * 72 / 25.4 # in points (1/72 inch); this is A3
 PAGE_HEIGHT = 297 * 72 / 25.4
 WIDTH = 240 # width of card, in points (1/72 inch)
 HEIGHT = 160 # height of card, in points (1/72 inch)
 RADIUS = 10 # corner radius, in points (1/72 inch)
 INSET = 10 # margin between edge of card and graphic, in points (1/72 inch)
 MARGIN = 15 # margin between page edge and cards, in points (1/72 inch)
-CARDS_HORI = round(PAGE_WIDTH - 2 * INSET) // WIDTH # number of cards per page horizontally
-CARDS_VERTI = round(PAGE_HEIGHT - 2 * INSET) // HEIGHT # number of cards per page vertically
+DOTS = True # draw alignment dots
+DOT_RADIUS = 8 if DOTS else 0 # radius of alignment dots
+CARDS_HORI = round(PAGE_WIDTH - 2 * MARGIN - 4 * DOT_RADIUS) // WIDTH # number of cards per page horizontally
+CARDS_VERTI = round(PAGE_HEIGHT - 2 * MARGIN) // HEIGHT # number of cards per page vertically
 CARDS_PER_PAGE = CARDS_HORI * CARDS_VERTI # total number of cards per page
 
 # displays a text centered around (x, y)
@@ -62,12 +65,15 @@ def rounded_rectangle(ctx, x, y, width, height, radius):
     ctx.arc(x + radius, y + height - radius, radius, 0.5 * pi, pi) # bottom left
     ctx.close_path()
 
-# paints the red cutting line and the background in the given color
-def background(ctx, color):
-    rounded_rectangle(ctx, 0.1, 0.1, WIDTH - 0.2, HEIGHT - 0.2, RADIUS)
+# paints the red cutting line
+def cutting_line(ctx):
+    rounded_rectangle(ctx, 0.01, 0.01, WIDTH - 0.02, HEIGHT - 0.02, RADIUS)
     ctx.set_source_rgb(1, 0, 0) # red
     ctx.set_line_width(0.01) # for laser cutter
     ctx.stroke()
+
+# paints the background in the given color
+def background(ctx, color):
     rounded_rectangle(ctx, INSET, INSET, WIDTH - 2 * INSET, HEIGHT - 2 * INSET, RADIUS)
     ctx.set_source_rgb(*color)
     ctx.fill_preserve()
@@ -76,8 +82,7 @@ def background(ctx, color):
     ctx.stroke()
 
 # paint the front of the card
-def make_front(surface, card):
-    ctx = cairo.Context(surface)
+def make_front(ctx, card):
     background(ctx, (0.9, 0.9, 1)) # light blue
     ctx.set_source_rgb(0.7, 0.7, 1) # somewhat darker blue
     ctx.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
@@ -88,8 +93,7 @@ def make_front(surface, card):
     multi_line_text(ctx, WIDTH / 2, HEIGHT / 2, card['term'], WIDTH - 3 * INSET)
 
 # paints the back of the card
-def make_back(surface, card):
-    ctx = cairo.Context(surface)
+def make_back(ctx, card):
     background(ctx, (0.9, 1, 0.9)) # light green
     ctx.set_source_rgb(0.7, 1, 0.7) # somewhat darker green
     ctx.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
@@ -100,12 +104,71 @@ def make_back(surface, card):
     multi_line_text(ctx, WIDTH / 2, HEIGHT / 2, card['definition'], WIDTH - 3 * INSET)
 
 # displays a number in the bottom left corner of the card
-def number(surface, i):
-    ctx = cairo.Context(surface)
+def number(ctx, i):
     ctx.set_source_rgb(0, 0, 0) # black
     ctx.set_font_size(6)
     ctx.move_to(1.5 * INSET, HEIGHT - 1.5 * INSET)
     ctx.show_text(str(i))
+
+# paints a black dot at coordinates (x, y)
+def black_dot(ctx, x, y):
+    ctx.set_source_rgb(0, 0, 0)
+    ctx.new_path()
+    ctx.arc(x, y, DOT_RADIUS, 0, 2 * pi)
+    ctx.fill()
+
+# draw all cards
+def draw_cards(cards, surface, cutting_lines):
+    front = True # first draw a page of card fronts
+    i = 0
+    while i < len(cards):
+        if front:
+            # determine position, left to right, top to bottom
+            card_in_row = i % CARDS_HORI
+            x = MARGIN + card_in_row * WIDTH
+            if card_in_row == 1: # make room for black dots
+                x += 2 * DOT_RADIUS
+            elif card_in_row > 1:
+                x += 4 * DOT_RADIUS
+            y = MARGIN + ((i // CARDS_HORI) % CARDS_VERTI) * HEIGHT
+            sub_surface = surface.create_for_rectangle(x, y, WIDTH, HEIGHT)
+            ctx = cairo.Context(sub_surface)
+            if cutting_lines:
+                cutting_line(ctx)
+            else:
+                make_front(ctx, cards[i])
+                number(ctx, i + 1)
+            if (i + 1) % CARDS_PER_PAGE == 0 or i == len(cards) - 1: # page full or final page?
+                if DOTS:
+                    ctx = cairo.Context(surface)
+                    black_dot(ctx, MARGIN + WIDTH + DOT_RADIUS, MARGIN + HEIGHT)
+                    black_dot(ctx, MARGIN + 2 * WIDTH + 3 * DOT_RADIUS, MARGIN + 2 * HEIGHT)
+                    black_dot(ctx, MARGIN + WIDTH + DOT_RADIUS, MARGIN + 3 * HEIGHT)
+                surface.show_page()
+            if not cutting_lines:
+                if (i + 1) % CARDS_PER_PAGE == 0: # page full?
+                    front = False # switch to drawing card backs
+                    i -= CARDS_PER_PAGE - 1 # reset counter to start of page
+                elif i == len(cards) - 1: # last card when page is not yet full?
+                    front = False # switch to drawing card backs
+                    i -= i % CARDS_PER_PAGE # reset counter to start of page
+        if not front: # do not use 'else' here; both cases are executed at the turn of a page
+            # determine position, right to left, top to bottom
+            card_in_row = i % CARDS_HORI
+            x = round(PAGE_WIDTH - MARGIN - (card_in_row + 1) * WIDTH) # use round because PAGE_WITH is likely not an integer
+            if card_in_row == 1: # make room for black dots
+                x -= 2 * DOT_RADIUS
+            elif card_in_row > 1:
+                x -= 4 * DOT_RADIUS
+            y = MARGIN + ((i // CARDS_HORI) % CARDS_VERTI) * HEIGHT
+            sub_surface = surface.create_for_rectangle(x, y, WIDTH, HEIGHT)
+            ctx = cairo.Context(sub_surface)
+            make_back(ctx, cards[i])
+            number(ctx, i + 1)
+            if (i + 1) % CARDS_PER_PAGE == 0: # page full?
+                surface.show_page()
+                front = True # switch back to drawing card fronts
+        i += 1
 
 # load entire input file
 cards = []
@@ -116,35 +179,10 @@ for row in ws.iter_rows(min_row=2, values_only=True): # skip header row
 
 # create output file
 surface = cairo.PDFSurface(OUTPUT_FILE, PAGE_WIDTH, PAGE_HEIGHT)
+draw_cards(cards, surface, False)
+surface.finish()
 
-# draw all cards
-front = True # first draw a page of card fronts
-i = 0
-while i < len(cards):
-    if front:
-        # determine position, left to right, top to bottom
-        x = MARGIN + (i % CARDS_HORI) * WIDTH
-        y = MARGIN + ((i // CARDS_HORI) % CARDS_VERTI) * HEIGHT
-        sub_surface = surface.create_for_rectangle(x, y, WIDTH, HEIGHT)
-        make_front(sub_surface, cards[i])
-        number(sub_surface, i + 1)
-        if (i + 1) % CARDS_PER_PAGE == 0: # page full?
-            surface.show_page()
-            front = False # switch to drawing card backs
-            i -= CARDS_PER_PAGE - 1 # reset counter to start of page
-        elif i == len(cards) - 1: # last card when page is not yet full?
-            surface.show_page()
-            front = False # switch to drawing card backs
-            i -= i % CARDS_PER_PAGE # reset counter to start of page
-    if not front: # do not use 'else' here; both cases are executed at the turn of a page
-        # determine position, right to left, top to bottom
-        x = round(PAGE_WIDTH - MARGIN - (i % CARDS_HORI + 1) * WIDTH)
-        y = MARGIN + ((i // CARDS_HORI) % CARDS_VERTI) * HEIGHT
-        sub_surface = surface.create_for_rectangle(x, y, WIDTH, HEIGHT)
-        make_back(sub_surface, cards[i])
-        number(sub_surface, i + 1)
-        if (i + 1) % CARDS_PER_PAGE == 0: # page full?
-            surface.show_page()
-            front = True # switch back to drawing card fronts
-    i += 1
+# create cutting lines
+surface = cairo.PDFSurface(CUTTING_FILE, PAGE_WIDTH, PAGE_HEIGHT)
+draw_cards(cards, surface, True)
 surface.finish()
