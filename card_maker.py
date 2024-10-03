@@ -13,8 +13,10 @@ import openpyxl
 import cairo
 from math import pi
 
+# change these to customize
 INPUT_FILE = 'words.xlsx' # data file with three columns
 OUTPUT_FILE = 'cards.pdf'
+SEPARATE_CUTTING_LINES = True # create a seprate file with only cutting lines for a laser cutter
 CUTTING_FILE = 'cutting_lines.pdf'
 PAGE_WIDTH = 420 * 72 / 25.4 # in points (1/72 inch); this is A3
 PAGE_HEIGHT = 297 * 72 / 25.4
@@ -25,6 +27,11 @@ INSET = 10 # margin between edge of card and graphic, in points (1/72 inch)
 MARGIN = 15 # margin between page edge and cards, in points (1/72 inch)
 DOTS = True # draw alignment dots
 DOT_RADIUS = 8 if DOTS else 0 # radius of alignment dots
+
+# do not change values below
+NO = 0
+YES = 1
+ONLY = 2
 CARDS_HORI = round(PAGE_WIDTH - 2 * MARGIN - 4 * DOT_RADIUS) // WIDTH # number of cards per page horizontally
 CARDS_VERTI = round(PAGE_HEIGHT - 2 * MARGIN) // HEIGHT # number of cards per page vertically
 CARDS_PER_PAGE = CARDS_HORI * CARDS_VERTI # total number of cards per page
@@ -112,12 +119,13 @@ def number(ctx, i):
 
 # paints a black dot at coordinates (x, y)
 def black_dot(ctx, x, y):
-    ctx.set_source_rgb(0, 0, 0)
+    ctx.set_source_rgb(0, 0, 0) # black
     ctx.new_path()
     ctx.arc(x, y, DOT_RADIUS, 0, 2 * pi)
     ctx.fill()
 
-# draw all cards
+# draw all cards. cutting_lines may be YES (draw card and cutting lines), NO (draw only card)
+# or ONLY (draw only cuttong lines)
 def draw_cards(cards, surface, cutting_lines):
     front = True # first draw a page of card fronts
     i = 0
@@ -135,7 +143,7 @@ def draw_cards(cards, surface, cutting_lines):
             ctx = cairo.Context(sub_surface)
             if cutting_lines:
                 cutting_line(ctx)
-            else:
+            if cutting_lines != ONLY:
                 make_front(ctx, cards[i])
                 number(ctx, i + 1)
             if (i + 1) % CARDS_PER_PAGE == 0 or i == len(cards) - 1: # page full or final page?
@@ -145,7 +153,7 @@ def draw_cards(cards, surface, cutting_lines):
                     black_dot(ctx, MARGIN + 2 * WIDTH + 3 * DOT_RADIUS, MARGIN + 2 * HEIGHT)
                     black_dot(ctx, MARGIN + WIDTH + DOT_RADIUS, MARGIN + 3 * HEIGHT)
                 surface.show_page()
-            if not cutting_lines:
+            if cutting_lines != ONLY:
                 if (i + 1) % CARDS_PER_PAGE == 0: # page full?
                     front = False # switch to drawing card backs
                     i -= CARDS_PER_PAGE - 1 # reset counter to start of page
@@ -163,6 +171,8 @@ def draw_cards(cards, surface, cutting_lines):
             y = MARGIN + ((i // CARDS_HORI) % CARDS_VERTI) * HEIGHT
             sub_surface = surface.create_for_rectangle(x, y, WIDTH, HEIGHT)
             ctx = cairo.Context(sub_surface)
+            if cutting_lines:
+                cutting_line(ctx)
             make_back(ctx, cards[i])
             number(ctx, i + 1)
             if (i + 1) % CARDS_PER_PAGE == 0: # page full?
@@ -179,10 +189,11 @@ for row in ws.iter_rows(min_row=2, values_only=True): # skip header row
 
 # create output file
 surface = cairo.PDFSurface(OUTPUT_FILE, PAGE_WIDTH, PAGE_HEIGHT)
-draw_cards(cards, surface, False)
+draw_cards(cards, surface, NO if SEPARATE_CUTTING_LINES else YES)
 surface.finish()
 
-# create cutting lines
-surface = cairo.PDFSurface(CUTTING_FILE, PAGE_WIDTH, PAGE_HEIGHT)
-draw_cards(cards, surface, True)
-surface.finish()
+if SEPARATE_CUTTING_LINES:
+    # create cutting lines
+    surface = cairo.PDFSurface(CUTTING_FILE, PAGE_WIDTH, PAGE_HEIGHT)
+    draw_cards(cards, surface, ONLY)
+    surface.finish()
