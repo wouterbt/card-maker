@@ -16,7 +16,7 @@ from math import pi
 # change these to customize
 INPUT_FILE = 'words.xlsx' # data file with three columns
 OUTPUT_FILE = 'cards.pdf'
-SEPARATE_CUTTING_LINES = True # create a seprate file with only cutting lines for a laser cutter
+SEPARATE_CUTTING_LINES = True # create a separate file with only cutting lines for a laser cutter
 CUTTING_FILE = 'cutting_lines.pdf'
 PAGE_WIDTH = 420 * 72 / 25.4 # in points (1/72 inch); this is A3
 PAGE_HEIGHT = 297 * 72 / 25.4
