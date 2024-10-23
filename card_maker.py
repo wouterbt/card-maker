@@ -88,7 +88,7 @@ def background(ctx, color):
     ctx.set_line_width(2)
     ctx.stroke()
 
-# paint the front of the card
+# paints the front of the card
 def make_front(ctx, card):
     background(ctx, (0.9, 0.9, 1)) # light blue
     ctx.set_source_rgb(0.7, 0.7, 1) # somewhat darker blue
@@ -125,7 +125,7 @@ def black_dot(ctx, x, y):
     ctx.fill()
 
 # draw all cards. cutting_lines may be YES (draw card and cutting lines), NO (draw only card)
-# or ONLY (draw only cuttong lines)
+# or ONLY (draw only cutting lines)
 def draw_cards(cards, surface, cutting_lines):
     front = True # first draw a page of card fronts
     i = 0
